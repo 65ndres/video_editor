@@ -1,0 +1,13 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  gen_id: MyString
+  action_name: MyString
+  file_path: MyString
+  params_sent: 
+
+two:
+  gen_id: MyString
+  action_name: MyString
+  file_path: MyString
+  params_sent: 
