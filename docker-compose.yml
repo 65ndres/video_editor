@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Service for the Ruby on Rails web application
+  web:
+    build: .  # Build the service's image from the current directory
+    command: bundle exec rails s -p 3001 -b '0.0.0.0'  # Command to start the Rails server
+    ports:
+      - "3001:3001"  # Expose ports for accessing the application
+    volumes:
+      - .:/app  # Mount the current directory inside the container
+    depends_on:
+      - db
+    environment:
+      - RAILS_ENV=${RAILS_ENV}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
+
+  # Service for the PostgreSQL database
+  db:
+    image: postgres:13  # Use the official PostgreSQL version 13 image
+    ports:
+      - "5433:5433"  # Expose port for accessing the database
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # Create a volume for storing database data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    command: "postgres -p 5433"
+# Define a volume for storing PostgreSQL data
+volumes:
+  postgres_data:
