@@ -1,25 +1,17 @@
-# README
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
-
-Things you may want to cover:
-
-* Ruby version
-
-* System dependencies
-
-* Configuration
-
-* Database creation
-
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
-# video_editor
+    # video_editor
+      # |
+      # |-----> story-1 (maybe a uuid for foler naem is better)
+          # |
+          # |
+          # |----> scene-id
+              #  |
+              #  |
+              #  |----> images
+              #  |
+              #  |----> scene_video
+              #  |
+              #  |----> merged_audio_video
+                  #   -> audios
+                  #   ->
+                  # ->

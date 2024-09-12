@@ -7,6 +7,7 @@ WORKDIR /app
 # Install dependencies
 RUN apt-get update && \
     apt-get install -y nodejs && \
+    apt-get install -y ffmpeg && \
     gem install bundler
 
 # Copy Gemfile and Gemfile.lock to the working directory

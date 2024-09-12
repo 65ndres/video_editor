@@ -6,7 +6,7 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   namespace :reel_generator do
-    post "/videos/generate_video", to: "videos#generate_video"
+    post "/videos/generate_scene_video", to: "videos#generate_scene_video"
   end
 
   # Defines the root path route ("/")

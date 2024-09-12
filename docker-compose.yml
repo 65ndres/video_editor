@@ -9,6 +9,7 @@ services:
       - "3001:3001"  # Expose ports for accessing the application
     volumes:
       - .:/app  # Mount the current directory inside the container
+      - service_data:/var/lib/output_videos
     depends_on:
       - db
     environment:
@@ -34,3 +35,4 @@ services:
 # Define a volume for storing PostgreSQL data
 volumes:
   postgres_data:
+  service_data:

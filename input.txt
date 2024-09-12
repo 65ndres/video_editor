@@ -1,0 +1,1 @@
+file '/var/lib/output_videos/story-1/scene/images/img001'duration 5file '/var/lib/output_videos/story-1/scene/images/img002'duration 5file '/var/lib/output_videos/story-1/scene/images/img003'duration 5
