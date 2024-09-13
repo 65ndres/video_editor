@@ -2,16 +2,17 @@ version: '3.8'
 
 services:
   # Service for the Ruby on Rails web application
-  web:
+  api:
     build: .  # Build the service's image from the current directory
     command: bundle exec rails s -p 3001 -b '0.0.0.0'  # Command to start the Rails server
     ports:
       - "3001:3001"  # Expose ports for accessing the application
     volumes:
       - .:/app  # Mount the current directory inside the container
-      - service_data:/var/lib/output_videos
+      - service_data:/var/lib/output_media
     depends_on:
       - db
+      - cache
     environment:
       - RAILS_ENV=${RAILS_ENV}
       - POSTGRES_DB=${POSTGRES_DB}
@@ -19,6 +20,10 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
+      - REDIS_URL=${REDIS_URL}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
 
   # Service for the PostgreSQL database
   db:
@@ -31,7 +36,19 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_URL=${REDIS_URL}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     command: "postgres -p 5433"
+  cache:
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - '6389:6389'
+    command: redis-server
+    volumes: 
+      - ./cache:/data
 # Define a volume for storing PostgreSQL data
 volumes:
   postgres_data:

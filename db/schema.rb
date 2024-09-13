@@ -17,7 +17,9 @@ ActiveRecord::Schema[7.2].define(version: 2024_09_11_111423) do
   create_table "jobs", force: :cascade do |t|
     t.string "gen_id"
     t.string "action_name"
+    t.string "class_name"
     t.string "file_path"
+    t.integer "status", default: 0
     t.jsonb "params_sent"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
