@@ -1,4 +1,5 @@
 class ReelGenerator::VideoService
+  STORAGE_VOLUME_PATH = "/var/lib/output_media/"
 
   def self.generate_scene_video(job)
 
@@ -6,11 +7,12 @@ class ReelGenerator::VideoService
     story_id    = params["story_id"]
     scene_id    = params["scene_id"]
     images_urls = params["images_urls"]
+    video_name  = "output.mp4"
 
     story_folder        = "#{STORAGE_VOLUME_PATH}story-#{story_id}"
     scene_folder        = story_folder + "/scene-#{scene_id}"
     scene_images_folder = scene_folder + "/images"
-    scene_video_folder  = scene_folder + "/video"
+    scene_video_folder  = scene_folder + "/video"  
 
     Dir.mkdir(story_folder)
     Dir.mkdir(scene_folder)
@@ -31,7 +33,9 @@ class ReelGenerator::VideoService
       f.write("file '#{image_x_path}' \n") 
     end
 
-    `cd #{scene_images_folder} && ffmpeg -f concat -safe 0 -i input.txt -vsync vfr -pix_fmt yuv420p output.mp4 && cp output.mp4 #{scene_video_folder}`
-    render json: { "success": "OK", "status": 200,"body": { "video_path": scene_video_folder } }
+    `cd #{scene_images_folder} && ffmpeg -f concat -safe 0 -i input.txt -vsync vfr -pix_fmt yuv420p #{video_name} && cp #{video_name} #{scene_video_folder}`
+
+    job.update("status": 1, "file_path": scene_video_folder + '/' + video_name )
+    # render json: { "success": "OK", "status": 200,"body": { "video_path": scene_video_folder } }
   end
 end

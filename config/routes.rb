@@ -5,6 +5,8 @@ Rails.application.routes.draw do
   # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
 
+  get '/videos/generation_status/:gen_id', to:"videos#generation_status"
+
   namespace :reel_generator do
     post "/videos/generate_scene_video", to: "videos#generate_scene_video"
   end

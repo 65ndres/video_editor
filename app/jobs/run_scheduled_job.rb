@@ -6,7 +6,7 @@ class RunScheduledJob < ApplicationJob
     class_name  = job.class_name
     action_name = job.action_name
 
-    clazz = class_name.constantize.
+    clazz = class_name.constantize
     clazz.send(action_name, job)    
   end
 end

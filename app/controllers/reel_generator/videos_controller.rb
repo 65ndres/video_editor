@@ -1,5 +1,4 @@
 class ReelGenerator::VideosController < ApplicationController
-  STORAGE_VOLUME_PATH = "/var/lib/output_media/"
 
   def generate_scene_video
     required_params("scene_id", "story_id", "images_urls")
@@ -10,11 +9,9 @@ class ReelGenerator::VideosController < ApplicationController
                   class_name:  "ReelGenerator::VideoService")
 
     if job.save
-      return render json: { "success": "OK", "status": 200, "body": { "gen_id": job.gen_id } }
+      render json: { "success": "OK", "status": 200, "body": { "gen_id": job.gen_id } }
     end
-
   end
-
 
   private
 
@@ -25,7 +22,7 @@ class ReelGenerator::VideosController < ApplicationController
     end
 
     if !all_present
-      return render json: { "success": "false", "status": 404, "body": { "error": "Missing params" } }
+      render json: { "success": "false", "status": 404, "body": { "error": "Missing parameters" } }
     end
   end
 

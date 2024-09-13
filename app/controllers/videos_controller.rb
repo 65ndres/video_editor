@@ -3,8 +3,19 @@ class VideosController < ApplicationController
 
   def generation_status
     required_params("gen_id")
-  end
 
+    job = Job.find_by_gen_id(params["gen_id"])
+
+    if job
+      if job.status == 1
+        render json: { "success": "true", "status": 204, "body": { "status": "Completed", "file_path": job.file_path  } }
+      else
+        render json: { "success": "true", "status": 204, "body": { "error": "Not ready yet" } }
+      end
+    else
+      render json: { "success": "true", "status": 204, "body": { "error": "Record not found" } }
+    end
+  end
 
 
   private
@@ -16,7 +27,7 @@ class VideosController < ApplicationController
     end
 
     if !all_present
-      return render json: { "success": "false", "status": 404, "body": { "error": "Missing params" } }
+      render json: { "success": "false", "status": 404, "body": { "error": "Missing params" } }
     end
   end
 
