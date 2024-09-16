@@ -14,7 +14,7 @@ class ReelGenerator::VideosController < ApplicationController
   end
 
   def merge_audio_video
-    required_params("video_path", "audio_url")
+    # required_params("video_path", "audio_url")
 
 
     job = Job.new(params_sent: params, 
