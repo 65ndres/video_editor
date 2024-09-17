@@ -83,7 +83,8 @@ class ReelGenerator::VideoService
   end
 
 
-  def self.merge_all_videos(job)
+  def self.create_story_video(job)
+    # puts "I made it here tothe creat story !!!!!!!!"
     params               = job.params_sent
     story_id             = params["story_id"]
     story_folder         = "#{STORAGE_VOLUME_PATH}story-#{story_id}"

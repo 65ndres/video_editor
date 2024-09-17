@@ -6,6 +6,7 @@ Rails.application.routes.draw do
   namespace :reel_generator do
     post "/videos/generate_scene_video", to: "videos#generate_scene_video"
     post "/videos/merge_audio_video", to: "videos#merge_audio_video"
+    post "/videos/create_story_video", to: "videos#create_story_video"
   end
 
 end

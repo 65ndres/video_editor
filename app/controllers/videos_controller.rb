@@ -8,12 +8,12 @@ class VideosController < ApplicationController
 
     if job
       if job.status == 1
-        render json: { "success": "true", "status": 204, "body": { "status": "Completed", "file_path": job.file_path  } }
+        render json: { "success": "true", "status": 204, "body": { "completed": true, "file_path": job.file_path  } }
       else
-        render json: { "success": "true", "status": 204, "body": { "error": "Not ready yet" } }
+        render json: { "success": "true", "status": 204, "body": { "completed": false, "error": "Not ready yet" } }
       end
     else
-      render json: { "success": "true", "status": 204, "body": { "error": "Record not found" } }
+      render json: { "success": "true", "status": 204, "body": { "completed": false, "error": "Record not found" } }
     end
   end
 
