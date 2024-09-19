@@ -24,7 +24,8 @@ services:
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-
+    networks:
+      - reel_generator_some-net
   # Service for the PostgreSQL database
   db:
     image: postgres:13  # Use the official PostgreSQL version 13 image
@@ -41,6 +42,8 @@ services:
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     command: "postgres -p 5433"
+    networks:
+      - reel_generator_some-net
   cache:
     image: redis:6.2-alpine
     restart: always
@@ -49,7 +52,13 @@ services:
     command: redis-server
     volumes: 
       - ./cache:/data
+    networks:
+      - reel_generator_some-net
 # Define a volume for storing PostgreSQL data
 volumes:
   postgres_data:
   service_data:
+
+networks:
+  reel_generator_some-net:
+    external: true
