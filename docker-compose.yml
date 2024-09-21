@@ -25,7 +25,8 @@ services:
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     networks:
-      - reel_generator_some-net
+      reel_generator_some-net:
+        ipv4_address: ${VIDEO_EDITOR_LOCAL_IP}
   # Service for the PostgreSQL database
   db:
     image: postgres:13  # Use the official PostgreSQL version 13 image

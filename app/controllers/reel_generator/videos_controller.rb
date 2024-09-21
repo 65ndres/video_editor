@@ -8,7 +8,7 @@ class ReelGenerator::VideosController < ApplicationController
                   gen_id:      SecureRandom.uuid, 
                   action_name: "generate_scene_video",
                   class_name:  "ReelGenerator::VideoService")
-
+    render_response
   end
 
   def merge_audio_video
