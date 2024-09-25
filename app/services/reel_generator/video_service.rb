@@ -106,10 +106,10 @@ class ReelGenerator::VideoService
         puts "Thisis the x path #{merged_video_x_path}"
         f.write("file '#{merged_video_x_path}' \n")
       end
-      f.write("file '#{merged_video_x_path}' \n")
+      # f.write("file '#{merged_video_x_path}' \n")
     end
 
-    `cd #{story_video_folder} && ffmpeg -f concat -safe 0 -i input.txt -c copy output.mp4`
+    `cd #{story_video_folder} && ffmpeg -f concat -safe 0 -i input.txt -vsync vfr -pix_fmt yuv420p -c copy output.mp4`
 
     job.update("status": 1, "file_path": story_video_folder + '/output.mp4' )
   end
