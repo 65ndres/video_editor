@@ -9,6 +9,7 @@ class ReelGenerator::VideoService
     scene_id    = params["scene_id"]
     audio_url   = params["audio_url"]
     images_urls = params["images_urls"]
+    scene_text  = params["scene_text"]
     video_name  = "output.mp4"
 
     story_folder        = "#{STORAGE_VOLUME_PATH}story-#{story_id}"
@@ -34,9 +35,6 @@ class ReelGenerator::VideoService
     res = `cd #{scene_folder}/audio  && ffmpeg -i audio.mp3 2>&1 |grep -oP "[0-9]{2}:[0-9]{2}:[0-9]{2}"`
     audio_length_in_seconds = res.gsub("\n","").split(":")[-1]
 
-    puts "Thi sis what the respons is #{audio_length_in_seconds}"
-
-
     # logic for custom video length based on audio
     audio_length     = audio_length_in_seconds.to_i + 1
     frame_length     = SCENE_IMAGE_DISPLAY_TIME
@@ -57,7 +55,20 @@ class ReelGenerator::VideoService
       f.write("file '#{image_x_path}' \n") 
     end
 
+
+    #create subtitle
+
+    File.open("#{scene_video_folder}/subtitles.srt", "w") do |f|
+      f.write("1 \n")
+      f.write("00:00:0,000 --> 00:00:20,000 \n")
+      f.write(scene_text)
+    end
+
+    # create scene video from images
     `cd #{scene_images_folder} && ffmpeg -f concat -safe 0 -i input.txt -vsync vfr -pix_fmt yuv420p #{video_name} && cp #{video_name} #{scene_video_folder}`
+    # add subtitles
+    `cd #{scene_video_folder} && ffmpeg -i #{video_name} -vf subtitles=subtitles.srt output_srt.mp4`
+
 
     job.update("status": 1, "file_path": scene_video_folder + '/' + video_name )
   end
