@@ -1,6 +1,5 @@
 class ReelGenerator::VideoService
   STORAGE_VOLUME_PATH      = "/var/lib/output_media/"
-  SCENE_IMAGE_DISPLAY_TIME = 3
 
   def self.generate_scene_video(job)
 
@@ -33,40 +32,47 @@ class ReelGenerator::VideoService
     Down.download(audio_url, destination: audio_x_path)
 
     res = `cd #{scene_folder}/audio  && ffmpeg -i audio.mp3 2>&1 |grep -oP "[0-9]{2}:[0-9]{2}:[0-9]{2}"`
-    audio_length_in_seconds = res.gsub("\n","").split(":")[-1]
+    audio_length = res.gsub("\n","").split(":")[-1].to_i
 
-    # logic for custom video length based on audio
-    audio_length     = audio_length_in_seconds.to_i + 1
-    frame_length     = SCENE_IMAGE_DISPLAY_TIME
-    images_per_scene = audio_length / frame_length
-    image_duration   = audio_length / images_per_scene
+    image_duration = audio_length / images_urls.count
+
+    puts "This are image_duration image_duration #{image_duration}"
 
     File.open("#{scene_images_folder}/input.txt", "w") do |f|
       image_x_path = nil
-      images_urls[0...images_per_scene].each_with_index do |url, i|
+      images_urls.each_with_index do |url, i|
         image_name   = "image00#{ i + 1 }.jpg"
         image_x_path = scene_images_folder + "/" + image_name
 
         Down.download(url, destination: image_x_path)
-        f.write("file '#{image_x_path}' \n")
-        f.write("duration #{image_duration} \n")
+
+        image_duration.times do |i|
+          f.write("file '#{image_x_path}' \n")
+          f.write("duration 1 \n")
+        end
       end
       # this is a quirk with the library used to merge the images
       f.write("file '#{image_x_path}' \n") 
     end
-
-
-    #create subtitle
-
+    
+    #create subtitles
     File.open("#{scene_video_folder}/subtitles.srt", "w") do |f|
-      f.write("1 \n")
-      f.write("00:00:0,000 --> 00:00:20,000 \n")
-      f.write(scene_text)
+    total_sentences    = scene_text.split(",").count
+    sentence_step =  (audio_length.to_f / total_sentences.to_f).ceil
+    s = 0
+      scene_text.split(",").each_with_index do |sentence, index|
+        f.write("#{index + 1} \n")
+        f.write("00:00:#{s},000 --> 00:00:#{s + sentence_step},000 \n")
+        f.write(sentence.strip + " \n")
+        f.write("\n")
+        s = s + sentence_step
+      end
+
     end
 
-    # create scene video from images
+    # # # create scene video from images
     `cd #{scene_images_folder} && ffmpeg -f concat -safe 0 -i input.txt -vsync vfr -pix_fmt yuv420p #{video_name} && cp #{video_name} #{scene_video_folder}`
-    # add subtitles
+    # # add subtitles
     `cd #{scene_video_folder} && ffmpeg -i #{video_name} -vf subtitles=subtitles.srt output_srt.mp4`
 
 
@@ -130,3 +136,7 @@ class ReelGenerator::VideoService
   end
 
 end
+
+
+
+
