@@ -34,47 +34,53 @@ class ReelGenerator::VideoService
     res = `cd #{scene_folder}/audio  && ffmpeg -i audio.mp3 2>&1 |grep -oP "[0-9]{2}:[0-9]{2}:[0-9]{2}"`
     audio_length = res.gsub("\n","").split(":")[-1].to_i
 
-    image_duration = audio_length / images_urls.count
+    puts "This is the audio length #{audio_length}"
 
-    puts "This are image_duration image_duration #{image_duration}"
+    image_duration = (audio_length.to_f / images_urls.count.to_f).ceil
+
+    # limit the number of images shows 
+    max_number_of_images = audio_length / 4 # is the min number of seconds to hace an images
 
     File.open("#{scene_images_folder}/input.txt", "w") do |f|
       image_x_path = nil
-      images_urls.each_with_index do |url, i|
-        image_name   = "image00#{ i + 1 }.jpg"
+      images_urls[0...max_number_of_images].each_with_index do |url, i|
+        image_name   = "image00#{ i + 1 }.mp4"
         image_x_path = scene_images_folder + "/" + image_name
 
         Down.download(url, destination: image_x_path)
-
-        image_duration.times do |i|
-          f.write("file '#{image_x_path}' \n")
-          f.write("duration 1 \n")
-        end
+        f.write("file '#{image_x_path}' \n")
       end
-      # this is a quirk with the library used to merge the images
-      f.write("file '#{image_x_path}' \n") 
     end
-    
-    #create subtitles
+
     File.open("#{scene_video_folder}/subtitles.srt", "w") do |f|
-    total_sentences    = scene_text.split(",").count
-    sentence_step =  (audio_length.to_f / total_sentences.to_f).ceil
-    s = 0
-      scene_text.split(",").each_with_index do |sentence, index|
-        f.write("#{index + 1} \n")
-        f.write("00:00:#{s},000 --> 00:00:#{s + sentence_step},000 \n")
-        f.write(sentence.strip + " \n")
+      total_words  = scene_text.split(" ").count
+      n = 1
+      if total_words > 24
+        n = 3
+      elsif total_words > 11
+        n = 2
+      else
+        n = 1
+      end
+      new_s = 0.0
+      scene_text.split(",").each_with_index do |sentence, i|
+        f.write("#{i + 1} \n")
+        words_count = sentence.split(" ").length.to_f
+        sentence_step = (words_count / 3.0) > 0 ? (words_count / 3.0).round(2) : 1.0
+        ennd  = new_s + sentence_step
+        # i coule also sub split eh sentenace
+        f.write("00:00:#{new_s.to_s.gsub(".",",")}0 --> 00:00:#{ennd.to_s.gsub(".",",")}0 \n")
+        f.write(sentence + " \n")
         f.write("\n")
-        s = s + sentence_step
+        new_s = ennd
       end
 
     end
 
     # # # create scene video from images
-    `cd #{scene_images_folder} && ffmpeg -f concat -safe 0 -i input.txt -vsync vfr -pix_fmt yuv420p #{video_name} && cp #{video_name} #{scene_video_folder}`
+    `cd #{scene_images_folder} && ffmpeg -f concat -safe 0 -i input.txt -vsync vfr -pix_fmt yuv420p pre_subtitles_output.mp4 && cp pre_subtitles_output.mp4 #{scene_video_folder}`
     # # add subtitles
-    `cd #{scene_video_folder} && ffmpeg -i #{video_name} -vf subtitles=subtitles.srt output_srt.mp4`
-
+    `cd #{scene_video_folder} && ffmpeg -i pre_subtitles_output.mp4 -vf subtitles=subtitles.srt #{video_name}`
 
     job.update("status": 1, "file_path": scene_video_folder + '/' + video_name )
   end
@@ -104,26 +110,18 @@ class ReelGenerator::VideoService
 
 
   def self.create_story_video(job)
-    # puts "I made it here tothe creat story !!!!!!!!"
     params               = job.params_sent
     story_id             = params["story_id"]
     story_folder         = "#{STORAGE_VOLUME_PATH}story-#{story_id}"
-
-    puts "This is the Story folder #{story_id}"
-
     story_video_folder   = story_folder + "/" + "video"
     story_scenes_folders = Dir.new(story_folder).children.select { |folder| folder.include?('scene')}
-    puts story_scenes_folders
   
     File.open("#{story_video_folder}/input.txt", "w") do |f|
     merged_video_x_path = nil
       story_scenes_folders.each do |scene_folder|
-        puts "This is the escen #{scene_folder}"
         merged_video_x_path = story_folder + "/" + scene_folder + "/" + "merged_audio_video" + "/output.mp4"
-        puts "Thisis the x path #{merged_video_x_path}"
         f.write("file '#{merged_video_x_path}' \n")
       end
-      # f.write("file '#{merged_video_x_path}' \n")
     end
 
     `cd #{story_video_folder} && ffmpeg -f concat -safe 0 -i input.txt -vsync vfr -pix_fmt yuv420p -c copy output.mp4`
