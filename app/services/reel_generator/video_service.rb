@@ -63,16 +63,28 @@ class ReelGenerator::VideoService
         n = 1
       end
       new_s = 0.0
-      scene_text.split(",").each_with_index do |sentence, i|
+      # scene_text.split(",").each_with_index do |sentence, i|
+      #   f.write("#{i + 1} \n")
+      #   words_count = sentence.split(" ").length.to_f
+      #   sentence_step = (words_count / 3.0) > 0 ? (words_count / 3.0).round(2) : 1.0
+      #   ennd  = new_s + sentence_step
+      #   f.write("00:00:#{new_s.to_s.gsub(".",",")}0 --> 00:00:#{ennd.to_s.gsub(".",",")}0 \n")
+      #   f.write(sentence + " \n")
+      #   f.write("\n")
+      #   new_s = ennd
+      # end
+      s = i = 0
+      scene_text.split(" ").each_slice(3) do |sentence|
         f.write("#{i + 1} \n")
-        words_count = sentence.split(" ").length.to_f
-        sentence_step = (words_count / 3.0) > 0 ? (words_count / 3.0).round(2) : 1.0
-        ennd  = new_s + sentence_step
-        # i coule also sub split eh sentenace
-        f.write("00:00:#{new_s.to_s.gsub(".",",")}0 --> 00:00:#{ennd.to_s.gsub(".",",")}0 \n")
+        # words_count = sentence.split(" ").length.to_f
+        # sentence_step = (words_count / 3.0) > 0 ? (words_count / 3.0).round(2) : 1.0
+        # ennd  = new_s + sentence_step
+        t = s + 1.2
+        f.write("00:00:#{s.to_s.gsub(".",",")}0 --> 00:00:#{t.to_s.gsub(".",",")}0  \n")
         f.write(sentence + " \n")
         f.write("\n")
-        new_s = ennd
+        s = t
+        i += 1
       end
 
     end
