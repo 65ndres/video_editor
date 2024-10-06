@@ -29,6 +29,7 @@ class ReelGenerator::VideoService
     Dir.mkdir(merged_audio_video_folder) if !File.exists?(merged_audio_video_folder)
     Dir.mkdir(story_video_folder) if !File.exists?(story_video_folder)
 
+    
     Down.download(audio_url, destination: audio_x_path)
 
     res = `cd #{scene_folder}/audio  && ffmpeg -i audio.mp3 2>&1 |grep -oP "[0-9]{2}:[0-9]{2}:[0-9]{2}"`
@@ -38,7 +39,7 @@ class ReelGenerator::VideoService
 
     image_duration = (audio_length.to_f / images_urls.count.to_f).ceil
 
-    # limit the number of images shows 
+    # limit the number of images shows based on the audio length
     max_number_of_images = audio_length / 4 # is the min number of seconds to hace an images
 
     File.open("#{scene_images_folder}/input.txt", "w") do |f|
@@ -74,16 +75,21 @@ class ReelGenerator::VideoService
       #   new_s = ennd
       # end
       s = i = 0
-      scene_text.split(" ").each_slice(3) do |sentence|
+
+      # READ!!! I tried showing 3 words per second but it all goes toshit 
+      # get the length of the audio and based on the text length we can know how many wps ?
+      wps = (total_words.to_f / audio_length.to_f).ceil
+      scene_text.split(" ").each_slice(wps) do |sentence|
         f.write("#{i + 1} \n")
         # words_count = sentence.split(" ").length.to_f
         # sentence_step = (words_count / 3.0) > 0 ? (words_count / 3.0).round(2) : 1.0
         # ennd  = new_s + sentence_step
-        t = s + 1.2
-        f.write("00:00:#{s.to_s.gsub(".",",")}0 --> 00:00:#{t.to_s.gsub(".",",")}0  \n")
-        f.write(sentence + " \n")
+        
+        # t = (s + 1.2).round(2) # the 1.2 should be calculated not fixed.
+        f.write("00:00:#{s},000 --> 00:00:#{s + 1},000  \n")
+        f.write(sentence.join(" ") + " \n")
         f.write("\n")
-        s = t
+        s = s + 1
         i += 1
       end
 
