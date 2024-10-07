@@ -41,6 +41,11 @@ class ReelGenerator::VideoService
 
     # limit the number of images shows based on the audio length
     max_number_of_images = audio_length / 4 # is the min number of seconds to hace an images
+    max_number_of_images = max_number_of_images == 0 ? 1 : max_number_of_images
+    puts "HERE is the max number of images #{max_number_of_images}"
+    # HEREREEEEEE
+    # Having issues genrating the data needed for SCene 240. input.txt file does not have any input in it, find out why
+
 
     File.open("#{scene_images_folder}/input.txt", "w") do |f|
       image_x_path = nil
@@ -98,7 +103,7 @@ class ReelGenerator::VideoService
     # # # create scene video from images
     `cd #{scene_images_folder} && ffmpeg -f concat -safe 0 -i input.txt -vsync vfr -pix_fmt yuv420p pre_subtitles_output.mp4 && cp pre_subtitles_output.mp4 #{scene_video_folder}`
     # # add subtitles
-    `cd #{scene_video_folder} && ffmpeg -i pre_subtitles_output.mp4 -vf subtitles=subtitles.srt #{video_name}`
+    `cd #{scene_video_folder} && ffmpeg -i pre_subtitles_output.mp4 -vf subtitles=subtitles.srt:force_style='Alignment=10' #{video_name}`
 
     job.update("status": 1, "file_path": scene_video_folder + '/' + video_name )
   end
@@ -136,6 +141,7 @@ class ReelGenerator::VideoService
   
     File.open("#{story_video_folder}/input.txt", "w") do |f|
     merged_video_x_path = nil
+    # the folders must come sorted out
       story_scenes_folders.each do |scene_folder|
         merged_video_x_path = story_folder + "/" + scene_folder + "/" + "merged_audio_video" + "/output.mp4"
         f.write("file '#{merged_video_x_path}' \n")
