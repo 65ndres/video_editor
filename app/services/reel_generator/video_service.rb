@@ -137,7 +137,7 @@ class ReelGenerator::VideoService
     story_id             = params["story_id"]
     story_folder         = "#{STORAGE_VOLUME_PATH}story-#{story_id}"
     story_video_folder   = story_folder + "/" + "video"
-    story_scenes_folders = Dir.new(story_folder).children.select { |folder| folder.include?('scene')}
+    story_scenes_folders = Dir.new(story_folder).children.select { |folder| folder.include?('scene')}.sort!
   
     File.open("#{story_video_folder}/input.txt", "w") do |f|
     merged_video_x_path = nil
