@@ -37,24 +37,40 @@ class ReelGenerator::VideoService
 
     puts "This is the audio length #{audio_length}"
 
-    image_duration = (audio_length.to_f / images_urls.count.to_f).ceil
 
-    # limit the number of images shows based on the audio length
-    max_number_of_images = audio_length / 4 # is the min number of seconds to hace an images
-    max_number_of_images = max_number_of_images == 0 ? 1 : max_number_of_images
-    puts "HERE is the max number of images #{max_number_of_images}"
-    # HEREREEEEEE
-    # Having issues genrating the data needed for SCene 240. input.txt file does not have any input in it, find out why
 
+
+    #####
+    # min_image_length = 3 # seconds
+    # number_of_images_needed = (audio_length.to_f / min_image_length.to_f).ceil
+
+    # # do I have that number of images ?
+    # images_total = images_urls.count
+    # max_images_shown = 
+    # if images_total == 1
+    #   # show same images
+    # elsif images_total == 5
+    # end
+
+    #####
+
+    # image_duration = audio_length / images_urls.count
 
     File.open("#{scene_images_folder}/input.txt", "w") do |f|
       image_x_path = nil
-      images_urls[0...max_number_of_images].each_with_index do |url, i|
+      images_urls[0...1].each_with_index do |url, i|
         image_name   = "image00#{ i + 1 }.mp4"
         image_x_path = scene_images_folder + "/" + image_name
 
         Down.download(url, destination: image_x_path)
-        f.write("file '#{image_x_path}' \n")
+        # f.write("file '#{image_x_path}' \n")
+
+        audio_length.times do |i|
+          f.write("file '#{image_x_path}' \n")
+          f.write("duration 1 \n")
+        end
+
+        f.write("file '#{image_x_path}' \n") 
       end
     end
 
@@ -69,16 +85,9 @@ class ReelGenerator::VideoService
         n = 1
       end
       new_s = 0.0
-      # scene_text.split(",").each_with_index do |sentence, i|
-      #   f.write("#{i + 1} \n")
-      #   words_count = sentence.split(" ").length.to_f
-      #   sentence_step = (words_count / 3.0) > 0 ? (words_count / 3.0).round(2) : 1.0
-      #   ennd  = new_s + sentence_step
-      #   f.write("00:00:#{new_s.to_s.gsub(".",",")}0 --> 00:00:#{ennd.to_s.gsub(".",",")}0 \n")
-      #   f.write(sentence + " \n")
-      #   f.write("\n")
-      #   new_s = ennd
-      # end
+      # We neeed tomake sure the images or video length is atleast the length of the voice (which is impossible with motion)
+      # | This is the audio length 6
+      # api-1    | HERE is the max number of images 1
       s = i = 0
 
       # READ!!! I tried showing 3 words per second but it all goes toshit 
@@ -86,11 +95,7 @@ class ReelGenerator::VideoService
       wps = (total_words.to_f / audio_length.to_f).ceil
       scene_text.split(" ").each_slice(wps) do |sentence|
         f.write("#{i + 1} \n")
-        # words_count = sentence.split(" ").length.to_f
-        # sentence_step = (words_count / 3.0) > 0 ? (words_count / 3.0).round(2) : 1.0
-        # ennd  = new_s + sentence_step
-        
-        # t = (s + 1.2).round(2) # the 1.2 should be calculated not fixed.
+
         f.write("00:00:#{s},000 --> 00:00:#{s + 1},000  \n")
         f.write(sentence.join(" ") + " \n")
         f.write("\n")
