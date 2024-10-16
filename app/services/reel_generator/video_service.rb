@@ -85,13 +85,7 @@ class ReelGenerator::VideoService
         n = 1
       end
       new_s = 0.0
-      # We neeed tomake sure the images or video length is atleast the length of the voice (which is impossible with motion)
-      # | This is the audio length 6
-      # api-1    | HERE is the max number of images 1
       s = i = 0
-
-      # READ!!! I tried showing 3 words per second but it all goes toshit 
-      # get the length of the audio and based on the text length we can know how many wps ?
       wps = (total_words.to_f / audio_length.to_f).ceil
       scene_text.split(" ").each_slice(wps) do |sentence|
         f.write("#{i + 1} \n")
