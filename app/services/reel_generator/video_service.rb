@@ -59,15 +59,18 @@ class ReelGenerator::VideoService
     File.open("#{scene_images_folder}/input.txt", "w") do |f|
       image_x_path = nil
       images_urls[0...1].each_with_index do |url, i|
-        image_name   = "image00#{ i + 1 }.mp4"
+        image_name   = "image00#{ i + 1 }.jpg"
         image_x_path = scene_images_folder + "/" + image_name
 
         Down.download(url, destination: image_x_path)
         # f.write("file '#{image_x_path}' \n")
 
         audio_length.times do |i|
-          f.write("file '#{image_x_path}' \n")
-          f.write("duration 1 \n")
+          # count = 1
+          10.times do |j|
+            f.write("file '#{image_x_path}' \n")
+            f.write("duration 0.1 \n")
+          end
         end
 
         f.write("file '#{image_x_path}' \n") 
@@ -84,16 +87,17 @@ class ReelGenerator::VideoService
       else
         n = 1
       end
-      new_s = 0.0
-      s = i = 0
-      wps = (total_words.to_f / audio_length.to_f).ceil
-      scene_text.split(" ").each_slice(wps) do |sentence|
+      s = 0.0
+      i = 0
+      # we need to change this to acount for the words per minute 1.3 words
+      wps = 1.3 #(total_words.to_f / audio_length.to_f).ceil
+      scene_text.split(" ").each_slice(3) do |sentence|
         f.write("#{i + 1} \n")
 
-        f.write("00:00:#{s},000 --> 00:00:#{s + 1},000  \n")
+        f.write("00:00:#{s.to_s.gsub(".",",")}0 --> 00:00:#{(s + wps).to_s.gsub(".", ",")}0  \n")
         f.write(sentence.join(" ") + " \n")
         f.write("\n")
-        s = s + 1
+        s = (s + wps).round(1)
         i += 1
       end
 
