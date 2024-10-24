@@ -42,15 +42,60 @@ class ReelGenerator::VideoService
 
     #####
     # min_image_length = 3 # seconds
-    # number_of_images_needed = (audio_length.to_f / min_image_length.to_f).ceil
+    # # number_of_images_needed = (audio_length.to_f / min_image_length.to_f).ceil
+    # seconds_to_fill = audio_length
 
-    # # do I have that number of images ?
+    # # # do I have that number of images ?
     # images_total = images_urls.count
-    # max_images_shown = 
+    # # max_images_shown = 
     # if images_total == 1
     #   # show same images
-    # elsif images_total == 5
+    # else
+    #   # I need to know how to split the images_shown_length to fill the audio_length
+      
+    #   audio_length = 7
+
+
+    #   # images_needed = 1
+    #   # images_added = 0
+    #   # images_counter = 0
+    #   # while
     # end
+
+
+    #####
+
+    # images_load = {
+    #   "image1": 3
+    # }
+
+    images_to_show = []
+    min_image_length = 3 # seconds
+
+    # first I need to know how many images are needed
+    number_of_images_needed = audio_length / min_image_length
+    if number_of_images_needed > images_urls.count
+      images_urls << images_urls.last
+    end
+    images_urls[0...number_of_images_needed].each do |url|
+      image_data = {}
+      image_data[url] = min_image_length
+      images_to_show << image_data
+    end
+
+    # if there are more seconds than image_length then calculate
+    # the seconds reminder and add to last item
+
+    extra_seconds = audio_length % min_image_length
+    if extra_seconds > 0
+      last_item = images_to_show.last
+      last_item_key = last_item.keys.first
+      last_item[last_item_key] = last_item[last_item_key] + extra_seconds
+    end
+      
+    # second I need to for how long those images are gonna be shown
+      
+
 
     #####
 
@@ -58,24 +103,50 @@ class ReelGenerator::VideoService
 
     File.open("#{scene_images_folder}/input.txt", "w") do |f|
       image_x_path = nil
-      images_urls[0...1].each_with_index do |url, i|
-        image_name   = "image00#{ i + 1 }.jpg"
-        image_x_path = scene_images_folder + "/" + image_name
-
-        Down.download(url, destination: image_x_path)
-        # f.write("file '#{image_x_path}' \n")
-
-        audio_length.times do |i|
-          # count = 1
-          10.times do |j|
-            f.write("file '#{image_x_path}' \n")
-            f.write("duration 0.1 \n")
+      images_to_show.each_with_index do |image_data, i|
+        image_data.each do |url, duration|
+          image_name   = "image00#{ i + 1 }.jpg"
+          image_x_path = scene_images_folder + "/" + image_name
+          puts "@@@@@@ This is the duration #{duration}"
+          puts "@@@@@@ This is the url #{url}"
+          Down.download(url, destination: image_x_path)
+  
+          duration.times do |i|
+            10.times do |j|
+              f.write("file '#{image_x_path}' \n")
+              f.write("duration 0.1 \n")
+            end
           end
+  
+          f.write("file '#{image_x_path}' \n") 
         end
-
-        f.write("file '#{image_x_path}' \n") 
       end
     end
+
+
+
+
+  #   File.open("#{scene_images_folder}/input.txt", "w") do |f|
+  #   image_x_path = nil
+  #   images_urls[0...1].each_with_index do |url, i|
+  #     image_name   = "image00#{ i + 1 }.jpg"
+  #     image_x_path = scene_images_folder + "/" + image_name
+
+  #     Down.download(url, destination: image_x_path)
+
+  #     audio_length.times do |i|
+  #       10.times do |j|
+  #         f.write("file '#{image_x_path}' \n")
+  #         f.write("duration 0.1 \n")
+  #       end
+  #     end
+
+  #     f.write("file '#{image_x_path}' \n") 
+  #   end
+  # end
+
+
+
 
     File.open("#{scene_video_folder}/subtitles.srt", "w") do |f|
       total_words  = scene_text.split(" ").count
@@ -90,11 +161,11 @@ class ReelGenerator::VideoService
       s = 0.0
       i = 0
       # we need to change this to acount for the words per minute 1.3 words
-      wps = 1.3 #(total_words.to_f / audio_length.to_f).ceil
+      wps = 1.1 #(total_words.to_f / audio_length.to_f).ceil
       scene_text.split(" ").each_slice(3) do |sentence|
         f.write("#{i + 1} \n")
 
-        f.write("00:00:#{s.to_s.gsub(".",",")}0 --> 00:00:#{(s + wps).to_s.gsub(".", ",")}0  \n")
+        f.write("00:00:#{s.to_s.gsub(".",",")}0 --> 00:00:#{(s + wps).round(1).to_s.gsub(".", ",")}0  \n")
         f.write(sentence.join(" ") + " \n")
         f.write("\n")
         s = (s + wps).round(1)
