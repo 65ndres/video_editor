@@ -187,7 +187,7 @@ class ReelGenerator::VideoService
     params       = job.params_sent
     story_id     = params["story_id"]
     scene_id     = params["scene_id"]
-    video_x_path = params["video_path"]
+    video_url    = params["video_url"]
     audio_name   = "audio.mp3"
 
     story_folder        = "#{STORAGE_VOLUME_PATH}story-#{story_id}"
@@ -195,6 +195,15 @@ class ReelGenerator::VideoService
     audio_folder        = scene_folder + "/audio"
     audio_x_path        = audio_folder + "/" + audio_name
     merged_audio_video_folder = scene_folder + "/" + "merged_audio_video"
+    source_video_name   = "source_video.mp4"
+    video_x_path        = merged_audio_video_folder + "/" + source_video_name
+
+    Dir.mkdir(story_folder) if !File.exists?(story_folder)
+    Dir.mkdir(scene_folder) if !File.exists?(scene_folder)
+    Dir.mkdir(merged_audio_video_folder) if !File.exists?(merged_audio_video_folder)
+    Dir.mkdir(audio_folder) if !File.exists?(audio_folder)
+
+    Down.download(video_url, destination: video_x_path)
 
     `cd #{merged_audio_video_folder} && ffmpeg \
      -i #{video_x_path} -i #{audio_x_path} \
