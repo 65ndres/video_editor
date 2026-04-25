@@ -1,6 +1,4 @@
 class VideosController < ApplicationController
-  STORAGE_VOLUME_PATH = "/var/lib/output_media/"
-
   def generation_status
     required_params("gen_id")
 

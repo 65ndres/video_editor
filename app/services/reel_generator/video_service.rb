@@ -1,5 +1,11 @@
 class ReelGenerator::VideoService
-  STORAGE_VOLUME_PATH      = "/var/lib/output_media/"
+  # Local default: tmp/output_media. Override with OUTPUT_MEDIA_PATH (e.g. Docker: /var/lib/output_media/).
+  def self.storage_volume_path
+    @storage_volume_path ||= begin
+      base = ENV["OUTPUT_MEDIA_PATH"].presence || Rails.root.join("tmp", "output_media").to_s
+      base.end_with?("/") ? base : "#{base}/"
+    end
+  end
 
   def self.generate_scene_video(job)
 
@@ -11,7 +17,7 @@ class ReelGenerator::VideoService
     scene_text  = params["scene_text"]
     video_name  = "output.mp4"
 
-    story_folder        = "#{STORAGE_VOLUME_PATH}story-#{story_id}"
+    story_folder        = "#{storage_volume_path}story-#{story_id}"
     story_video_folder  = story_folder + "/video"
     scene_folder        = story_folder + "/scene-#{scene_id}"
     audio_folder        = scene_folder + "/audio"
@@ -190,7 +196,7 @@ class ReelGenerator::VideoService
     video_url    = params["video_url"]
     audio_name   = "audio.mp3"
 
-    story_folder        = "#{STORAGE_VOLUME_PATH}story-#{story_id}"
+    story_folder        = "#{storage_volume_path}story-#{story_id}"
     scene_folder        = story_folder + "/scene-#{scene_id}"
     audio_folder        = scene_folder + "/audio"
     audio_x_path        = audio_folder + "/" + audio_name
@@ -218,7 +224,7 @@ class ReelGenerator::VideoService
   def self.create_story_video(job)
     params               = job.params_sent
     story_id             = params["story_id"]
-    story_folder         = "#{STORAGE_VOLUME_PATH}story-#{story_id}"
+    story_folder         = "#{storage_volume_path}story-#{story_id}"
     story_video_folder   = story_folder + "/" + "video"
     story_scenes_folders = Dir.new(story_folder).children.select { |folder| folder.include?('scene')}.sort!
   

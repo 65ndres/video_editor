@@ -4,27 +4,26 @@ default: &default
   # For details on connection pooling, see Rails configuration guide
   # https://guides.rubyonrails.org/configuring.html#database-pooling
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-  host: <%= ENV['POSTGRES_HOST'] %>
-  port: 5433
+  host: <%= ENV.fetch("POSTGRES_HOST", "localhost") %>
+  port: <%= ENV.fetch("POSTGRES_PORT", "5432") %>
 
 
 development:
   <<: *default
-  # database: reel_generator_development
-  database: <%= ENV['POSTGRES_DB'] %>
-  username: <%= ENV['POSTGRES_USER'] %>
-  password: <%= ENV['POSTGRES_PASSWORD'] %>
+  database: <%= ENV.fetch("POSTGRES_DB", "video_editor_development") %>
+  username: <%= ENV.fetch("POSTGRES_USER", ENV["USER"].presence || "postgres") %>
+  password: <%= ENV.fetch("POSTGRES_PASSWORD", "") %>
 
 
 test:
   <<: *default
-  database: reel_generator_test
-  username: <%= ENV['POSTGRES_USER'] %>
-  password: <%= ENV['POSTGRES_PASSWORD'] %>
+  database: <%= ENV.fetch("POSTGRES_TEST_DB", "reel_generator_test") %>
+  username: <%= ENV.fetch("POSTGRES_USER", ENV["USER"].presence || "postgres") %>
+  password: <%= ENV.fetch("POSTGRES_PASSWORD", "") %>
 
 
 production:
   <<: *default
-  database: <%= ENV['POSTGRES_DB'] %>
-  username: <%= ENV['POSTGRES_USER'] %>
-  password: <%= ENV['POSTGRES_PASSWORD'] %>
+  database: <%= ENV["POSTGRES_DB"] %>
+  username: <%= ENV["POSTGRES_USER"] %>
+  password: <%= ENV["POSTGRES_PASSWORD"] %>
