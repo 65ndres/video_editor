@@ -1,3 +1,5 @@
+require "fileutils"
+
 class ReelGenerator::VideoService
   # Local default: tmp/output_media. Override with OUTPUT_MEDIA_PATH (e.g. Docker: /var/lib/output_media/).
   def self.storage_volume_path
@@ -130,30 +132,6 @@ class ReelGenerator::VideoService
     end
 
 
-
-
-  #   File.open("#{scene_images_folder}/input.txt", "w") do |f|
-  #   image_x_path = nil
-  #   images_urls[0...1].each_with_index do |url, i|
-  #     image_name   = "image00#{ i + 1 }.jpg"
-  #     image_x_path = scene_images_folder + "/" + image_name
-
-  #     Down.download(url, destination: image_x_path)
-
-  #     audio_length.times do |i|
-  #       10.times do |j|
-  #         f.write("file '#{image_x_path}' \n")
-  #         f.write("duration 0.1 \n")
-  #       end
-  #     end
-
-  #     f.write("file '#{image_x_path}' \n") 
-  #   end
-  # end
-
-
-
-
     File.open("#{scene_video_folder}/subtitles.srt", "w") do |f|
       total_words  = scene_text.split(" ").count
       n = 1
@@ -192,32 +170,41 @@ class ReelGenerator::VideoService
   def self.merge_audio_video(job)
     params       = job.params_sent
     story_id     = params["story_id"]
+    audio_url    = params["audio_url"]
     scene_id     = params["scene_id"]
     video_url    = params["video_url"]
     audio_name   = "audio.mp3"
 
-    story_folder        = "#{storage_volume_path}story-#{story_id}"
-    scene_folder        = story_folder + "/scene-#{scene_id}"
-    audio_folder        = scene_folder + "/audio"
-    audio_x_path        = audio_folder + "/" + audio_name
-    merged_audio_video_folder = scene_folder + "/" + "merged_audio_video"
-    source_video_name   = "source_video.mp4"
-    video_x_path        = merged_audio_video_folder + "/" + source_video_name
+    story_folder              = "story-#{story_id}"
+    scene_folder              = "#{story_folder}/scene-#{scene_id}"
+    audio_folder              = "#{scene_folder}/audio"
+    merged_audio_video_folder = "#{scene_folder}/merged_audio_video"
+    source_video_name         = "source_video.mp4"
+    video_x_path              = "#{merged_audio_video_folder}/#{source_video_name}"
+    audio_x_path              = "#{audio_folder}/#{audio_name}"
+    output_mp4                = "#{merged_audio_video_folder}/output.mp4"
 
-    Dir.mkdir(story_folder) if !File.exists?(story_folder)
-    Dir.mkdir(scene_folder) if !File.exists?(scene_folder)
-    Dir.mkdir(merged_audio_video_folder) if !File.exists?(merged_audio_video_folder)
-    Dir.mkdir(audio_folder) if !File.exists?(audio_folder)
+    FileUtils.mkdir_p(audio_folder)
+    FileUtils.mkdir_p(merged_audio_video_folder)
 
+    Down.download(audio_url, destination: audio_x_path)
     Down.download(video_url, destination: video_x_path)
 
-    `cd #{merged_audio_video_folder} && ffmpeg \
-     -i #{video_x_path} -i #{audio_x_path} \
-    -c:v copy \
-    -map 0:v -map 1:a \
-    -y output.mp4`
+    video_in  = File.expand_path(video_x_path)
+    audio_in  = File.expand_path(audio_x_path)
+    output_in = File.expand_path(output_mp4)
 
-    job.update("status": 1, "file_path": merged_audio_video_folder + '/output.mp4' )
+    # Absolute paths + no `cd`: after `cd` into merged folder, project-relative `-i` paths break.
+    system(
+      "ffmpeg", "-y",
+      "-i", video_in,
+      "-i", audio_in,
+      "-c:v", "copy",
+      "-map", "0:v", "-map", "1:a",
+      output_in
+    )
+
+    job.update("status": 1, "file_path": output_mp4 )
   end
 
 
