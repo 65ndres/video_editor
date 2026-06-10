@@ -1,12 +1,25 @@
 require "fileutils"
 
 class ReelGenerator::VideoService
-  # Local default: tmp/output_media. Override with OUTPUT_MEDIA_PATH (e.g. Docker: /var/lib/output_media/).
+  # Local default: project root (story-{id}/...). Override with OUTPUT_MEDIA_PATH (e.g. Docker: /var/lib/output_media/).
   def self.storage_volume_path
     @storage_volume_path ||= begin
-      base = ENV["OUTPUT_MEDIA_PATH"].presence || Rails.root.join("tmp", "output_media").to_s
+      base = ENV["OUTPUT_MEDIA_PATH"].presence || Rails.root.to_s
       base.end_with?("/") ? base : "#{base}/"
     end
+  end
+
+  def self.story_folder_for(story_id)
+    "#{storage_volume_path}story-#{story_id}"
+  end
+
+  def self.story_video_folder_for(story_id)
+    "#{story_folder_for(story_id)}/video"
+  end
+
+  def self.ensure_story_layout!(story_id)
+    FileUtils.mkdir_p(story_folder_for(story_id))
+    FileUtils.mkdir_p(story_video_folder_for(story_id))
   end
 
   def self.generate_scene_video(job)
@@ -19,23 +32,21 @@ class ReelGenerator::VideoService
     scene_text  = params["scene_text"]
     video_name  = "output.mp4"
 
-    story_folder        = "#{storage_volume_path}story-#{story_id}"
-    story_video_folder  = story_folder + "/video"
-    scene_folder        = story_folder + "/scene-#{scene_id}"
-    audio_folder        = scene_folder + "/audio"
-    audio_x_path        = audio_folder + "/" + "audio.mp3"
-    scene_images_folder = scene_folder + "/images"
-    scene_video_folder  = scene_folder + "/video"
-    merged_audio_video_folder = scene_folder + "/" + "merged_audio_video"
+    ensure_story_layout!(story_id)
+    story_folder        = story_folder_for(story_id)
+    story_video_folder  = story_video_folder_for(story_id)
+    scene_folder        = "#{story_folder}/scene-#{scene_id}"
+    audio_folder        = "#{scene_folder}/audio"
+    audio_x_path        = "#{audio_folder}/audio.mp3"
+    scene_images_folder = "#{scene_folder}/images"
+    scene_video_folder  = "#{scene_folder}/video"
+    merged_audio_video_folder = "#{scene_folder}/merged_audio_video"
 
-
-    Dir.mkdir(story_folder) if !File.exists?(story_folder)
-    Dir.mkdir(scene_folder) if !File.exists?(scene_folder)
-    Dir.mkdir(scene_images_folder) if !File.exists?(scene_images_folder)
-    Dir.mkdir(scene_video_folder) if !File.exists?(scene_video_folder)
-    Dir.mkdir(audio_folder) if !File.exists?(audio_folder)
-    Dir.mkdir(merged_audio_video_folder) if !File.exists?(merged_audio_video_folder)
-    Dir.mkdir(story_video_folder) if !File.exists?(story_video_folder)
+    FileUtils.mkdir_p(scene_folder)
+    FileUtils.mkdir_p(scene_images_folder)
+    FileUtils.mkdir_p(scene_video_folder)
+    FileUtils.mkdir_p(audio_folder)
+    FileUtils.mkdir_p(merged_audio_video_folder)
 
     
     Down.download(audio_url, destination: audio_x_path)
@@ -175,7 +186,8 @@ class ReelGenerator::VideoService
     video_url    = params["video_url"]
     audio_name   = "audio.mp3"
 
-    story_folder              = "story-#{story_id}"
+    story_folder              = story_folder_for(story_id)
+    ensure_story_layout!(story_id)
     scene_folder              = "#{story_folder}/scene-#{scene_id}"
     audio_folder              = "#{scene_folder}/audio"
     merged_audio_video_folder = "#{scene_folder}/merged_audio_video"
@@ -195,7 +207,7 @@ class ReelGenerator::VideoService
     output_in = File.expand_path(output_mp4)
 
     # Absolute paths + no `cd`: after `cd` into merged folder, project-relative `-i` paths break.
-    system(
+    success = system(
       "ffmpeg", "-y",
       "-i", video_in,
       "-i", audio_in,
@@ -204,29 +216,63 @@ class ReelGenerator::VideoService
       output_in
     )
 
+    unless success && File.exist?(output_in)
+      Rails.logger.error("merge_audio_video ffmpeg failed job=#{job.id} scene=#{scene_id}")
+      return
+    end
+
     job.update("status": 1, "file_path": output_mp4 )
   end
 
 
   def self.create_story_video(job)
-    params               = job.params_sent
-    story_id             = params["story_id"]
-    story_folder         = "#{storage_volume_path}story-#{story_id}"
-    story_video_folder   = story_folder + "/" + "video"
-    story_scenes_folders = Dir.new(story_folder).children.select { |folder| folder.include?('scene')}.sort!
-  
-    File.open("#{story_video_folder}/input.txt", "w") do |f|
-    merged_video_x_path = nil
-    # the folders must come sorted out
-      story_scenes_folders.each do |scene_folder|
-        merged_video_x_path = story_folder + "/" + scene_folder + "/" + "merged_audio_video" + "/output.mp4"
+    params             = job.params_sent
+    story_id           = params["story_id"]
+    story_folder       = story_folder_for(story_id)
+    story_video_folder = story_video_folder_for(story_id)
+
+    unless File.directory?(story_folder)
+      Rails.logger.error("create_story_video missing story folder story=#{story_id} path=#{story_folder}")
+      return
+    end
+
+    story_scenes_folders = Dir.children(story_folder).grep(/\Ascene-\d+\z/).sort
+
+    merged_videos = story_scenes_folders.filter_map do |scene_folder|
+      path = File.join(story_folder, scene_folder, "merged_audio_video", "output.mp4")
+      path if File.exist?(path)
+    end
+
+    if merged_videos.empty?
+      Rails.logger.error("create_story_video no merged scene videos story=#{story_id} path=#{story_folder}")
+      return
+    end
+
+    ensure_story_layout!(story_id)
+    input_file = File.join(story_video_folder, "input.txt")
+    output_mp4 = File.join(story_video_folder, "output.mp4")
+
+    File.open(input_file, "w") do |f|
+      merged_videos.each do |merged_video_x_path|
         f.write("file '#{merged_video_x_path}' \n")
       end
     end
 
-    `cd #{story_video_folder} && ffmpeg -f concat -safe 0 -i input.txt -vsync vfr -pix_fmt yuv420p -c copy output.mp4`
+    success = system(
+      "ffmpeg", "-y",
+      "-f", "concat", "-safe", "0",
+      "-i", input_file,
+      "-vsync", "vfr", "-pix_fmt", "yuv420p",
+      "-c", "copy",
+      output_mp4
+    )
 
-    job.update("status": 1, "file_path": story_video_folder + '/output.mp4' )
+    unless success && File.exist?(output_mp4)
+      Rails.logger.error("create_story_video ffmpeg failed story=#{story_id}")
+      return
+    end
+
+    job.update("status": 1, "file_path": output_mp4)
   end
 
 
