@@ -34,7 +34,6 @@ class ReelGenerator::VideoService
 
     ensure_story_layout!(story_id)
     story_folder        = story_folder_for(story_id)
-    story_video_folder  = story_video_folder_for(story_id)
     scene_folder        = "#{story_folder}/scene-#{scene_id}"
     audio_folder        = "#{scene_folder}/audio"
     audio_x_path        = "#{audio_folder}/audio.mp3"
@@ -48,133 +47,101 @@ class ReelGenerator::VideoService
     FileUtils.mkdir_p(audio_folder)
     FileUtils.mkdir_p(merged_audio_video_folder)
 
-    
     Down.download(audio_url, destination: audio_x_path)
 
-    res = `cd #{scene_folder}/audio  && ffmpeg -i audio.mp3 2>&1 |grep -oP "[0-9]{2}:[0-9]{2}:[0-9]{2}"`
-    audio_length = res.gsub("\n","").split(":")[-1].to_i
+    audio_length = probe_audio_length(audio_x_path)
+    Rails.logger.info("generate_scene_video audio_length=#{audio_length} scene=#{scene_id}")
 
-    puts "This is the audio length #{audio_length}"
-
-
-
-
-    #####
-    # min_image_length = 3 # seconds
-    # # number_of_images_needed = (audio_length.to_f / min_image_length.to_f).ceil
-    # seconds_to_fill = audio_length
-
-    # # # do I have that number of images ?
-    # images_total = images_urls.count
-    # # max_images_shown = 
-    # if images_total == 1
-    #   # show same images
-    # else
-    #   # I need to know how to split the images_shown_length to fill the audio_length
-      
-    #   audio_length = 7
-
-
-    #   # images_needed = 1
-    #   # images_added = 0
-    #   # images_counter = 0
-    #   # while
-    # end
-
-
-    #####
-
-    # images_load = {
-    #   "image1": 3
-    # }
+    images_urls = Array.wrap(images_urls).map(&:presence).compact
+    if images_urls.blank?
+      Rails.logger.error("generate_scene_video no images job=#{job.id} scene=#{scene_id}")
+      return
+    end
 
     images_to_show = []
     min_image_length = 3 # seconds
 
-    # first I need to know how many images are needed
-    number_of_images_needed = audio_length / min_image_length
-    if number_of_images_needed > images_urls.count
-      images_urls << images_urls.last
-    end
+    number_of_images_needed = [1, audio_length / min_image_length].max
+    images_urls << images_urls.last while images_urls.length < number_of_images_needed
     images_urls[0...number_of_images_needed].each do |url|
       image_data = {}
       image_data[url] = min_image_length
       images_to_show << image_data
     end
 
-    # if there are more seconds than image_length then calculate
-    # the seconds reminder and add to last item
-
     extra_seconds = audio_length % min_image_length
-    if extra_seconds > 0
+    if extra_seconds > 0 && images_to_show.last.present?
       last_item = images_to_show.last
       last_item_key = last_item.keys.first
       last_item[last_item_key] = last_item[last_item_key] + extra_seconds
     end
-      
-    # second I need to for how long those images are gonna be shown
-      
 
+    input_txt     = File.expand_path("#{scene_images_folder}/input.txt")
+    pre_subtitles = File.expand_path("#{scene_images_folder}/pre_subtitles_output.mp4")
+    subtitles_srt = File.expand_path("#{scene_video_folder}/subtitles.srt")
+    output_mp4    = File.expand_path("#{scene_video_folder}/#{video_name}")
 
-    #####
-
-    # image_duration = audio_length / images_urls.count
-
-    File.open("#{scene_images_folder}/input.txt", "w") do |f|
-      image_x_path = nil
+    File.open(input_txt, "w") do |f|
       images_to_show.each_with_index do |image_data, i|
         image_data.each do |url, duration|
           image_name   = "image00#{ i + 1 }.jpg"
-          image_x_path = scene_images_folder + "/" + image_name
-          puts "@@@@@@ This is the duration #{duration}"
-          puts "@@@@@@ This is the url #{url}"
+          image_x_path = File.expand_path("#{scene_images_folder}/#{image_name}")
+          Rails.logger.info("generate_scene_video downloading image duration=#{duration} url=#{url}")
           Down.download(url, destination: image_x_path)
-  
-          duration.times do |i|
-            10.times do |j|
+
+          duration.times do
+            10.times do
               f.write("file '#{image_x_path}' \n")
               f.write("duration 0.1 \n")
             end
           end
-  
-          f.write("file '#{image_x_path}' \n") 
+
+          f.write("file '#{image_x_path}' \n")
         end
       end
     end
 
-
-    File.open("#{scene_video_folder}/subtitles.srt", "w") do |f|
-      total_words  = scene_text.split(" ").count
-      n = 1
-      if total_words > 24
-        n = 3
-      elsif total_words > 11
-        n = 2
-      else
-        n = 1
-      end
+    File.open(subtitles_srt, "w") do |f|
       s = 0.0
       i = 0
-      # we need to change this to acount for the words per minute 1.3 words
-      wps = 1.1 #(total_words.to_f / audio_length.to_f).ceil
-      scene_text.split(" ").each_slice(3) do |sentence|
+      wps = 1.1
+      scene_text.to_s.split(" ").each_slice(3) do |sentence|
         f.write("#{i + 1} \n")
-
         f.write("00:00:#{s.to_s.gsub(".",",")}0 --> 00:00:#{(s + wps).round(1).to_s.gsub(".", ",")}0  \n")
         f.write(sentence.join(" ") + " \n")
         f.write("\n")
         s = (s + wps).round(1)
         i += 1
       end
-
     end
 
-    # # # create scene video from images
-    `cd #{scene_images_folder} && ffmpeg -f concat -safe 0 -i input.txt -vsync vfr -pix_fmt yuv420p pre_subtitles_output.mp4 && cp pre_subtitles_output.mp4 #{scene_video_folder}`
-    # # add subtitles
-    `cd #{scene_video_folder} && ffmpeg -i pre_subtitles_output.mp4 -vf subtitles=subtitles.srt:force_style='Alignment=10' #{video_name}`
+    concat_ok = system(
+      "ffmpeg", "-y",
+      "-f", "concat", "-safe", "0",
+      "-i", input_txt,
+      "-fps_mode", "vfr",
+      "-pix_fmt", "yuv420p",
+      pre_subtitles
+    )
 
-    job.update("status": 1, "file_path": scene_video_folder + '/' + video_name )
+    unless concat_ok && File.exist?(pre_subtitles)
+      Rails.logger.error("generate_scene_video concat failed job=#{job.id} scene=#{scene_id}")
+      return
+    end
+
+    subtitles_ok = system(
+      "ffmpeg", "-y",
+      "-i", pre_subtitles,
+      "-vf", "subtitles=#{subtitles_srt}:force_style='Alignment=10'",
+      output_mp4
+    )
+
+    unless subtitles_ok && File.exist?(output_mp4)
+      Rails.logger.error("generate_scene_video subtitles failed job=#{job.id} scene=#{scene_id}")
+      return
+    end
+
+    job.update("status": 1, "file_path": output_mp4)
   end
 
 
@@ -279,8 +246,15 @@ class ReelGenerator::VideoService
   def self.folder_generator
   end
 
+  def self.probe_audio_length(audio_path)
+    raw = IO.popen(
+      ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", audio_path],
+      err: File::NULL,
+      &:read
+    )
+    length = raw.to_f.ceil
+    length.positive? ? length : 3
+  end
+  private_class_method :probe_audio_length
+
 end
-
-
-
-
