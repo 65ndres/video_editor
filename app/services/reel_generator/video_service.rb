@@ -166,10 +166,12 @@ class ReelGenerator::VideoService
     FileUtils.mkdir_p(audio_folder)
     FileUtils.mkdir_p(merged_audio_video_folder)
 
+    # binding.irb
     Down.download(audio_url, destination: audio_x_path)
-    Down.download(video_url, destination: video_x_path)
+    # Down.download(video_url, destination: video_x_path)
 
-    video_in  = File.expand_path(video_x_path)
+    video_in  = video_url
+    puts "MIAAAA was here"
     audio_in  = File.expand_path(audio_x_path)
     output_in = File.expand_path(output_mp4)
 
