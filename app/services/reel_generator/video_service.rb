@@ -29,7 +29,6 @@ class ReelGenerator::VideoService
     scene_id    = params["scene_id"]
     audio_url   = params["audio_url"]
     images_urls = params["images_urls"]
-    scene_text  = params["scene_text"]
     video_name  = "output.mp4"
 
     ensure_story_layout!(story_id)
@@ -76,10 +75,8 @@ class ReelGenerator::VideoService
       last_item[last_item_key] = last_item[last_item_key] + extra_seconds
     end
 
-    input_txt     = File.expand_path("#{scene_images_folder}/input.txt")
-    pre_subtitles = File.expand_path("#{scene_images_folder}/pre_subtitles_output.mp4")
-    subtitles_srt = File.expand_path("#{scene_video_folder}/subtitles.srt")
-    output_mp4    = File.expand_path("#{scene_video_folder}/#{video_name}")
+    input_txt  = File.expand_path("#{scene_images_folder}/input.txt")
+    output_mp4 = File.expand_path("#{scene_video_folder}/#{video_name}")
 
     File.open(input_txt, "w") do |f|
       images_to_show.each_with_index do |image_data, i|
@@ -101,43 +98,17 @@ class ReelGenerator::VideoService
       end
     end
 
-    File.open(subtitles_srt, "w") do |f|
-      s = 0.0
-      i = 0
-      wps = 1.1
-      scene_text.to_s.split(" ").each_slice(3) do |sentence|
-        f.write("#{i + 1} \n")
-        f.write("00:00:#{s.to_s.gsub(".",",")}0 --> 00:00:#{(s + wps).round(1).to_s.gsub(".", ",")}0  \n")
-        f.write(sentence.join(" ") + " \n")
-        f.write("\n")
-        s = (s + wps).round(1)
-        i += 1
-      end
-    end
-
     concat_ok = system(
       "ffmpeg", "-y",
       "-f", "concat", "-safe", "0",
       "-i", input_txt,
       "-fps_mode", "vfr",
       "-pix_fmt", "yuv420p",
-      pre_subtitles
-    )
-
-    unless concat_ok && File.exist?(pre_subtitles)
-      Rails.logger.error("generate_scene_video concat failed job=#{job.id} scene=#{scene_id}")
-      return
-    end
-
-    subtitles_ok = system(
-      "ffmpeg", "-y",
-      "-i", pre_subtitles,
-      "-vf", "subtitles=#{subtitles_srt}:force_style='Alignment=10'",
       output_mp4
     )
 
-    unless subtitles_ok && File.exist?(output_mp4)
-      Rails.logger.error("generate_scene_video subtitles failed job=#{job.id} scene=#{scene_id}")
+    unless concat_ok && File.exist?(output_mp4)
+      Rails.logger.error("generate_scene_video concat failed job=#{job.id} scene=#{scene_id}")
       return
     end
 
