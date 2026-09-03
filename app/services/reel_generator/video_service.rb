@@ -57,40 +57,22 @@ class ReelGenerator::VideoService
       return
     end
 
-    images_to_show = []
-    min_image_length = 3 # seconds
-
-    number_of_images_needed = [1, audio_length / min_image_length].max
-    images_urls << images_urls.last while images_urls.length < number_of_images_needed
-    images_urls[0...number_of_images_needed].each do |url|
-      image_data = {}
-      image_data[url] = min_image_length
-      images_to_show << image_data
-    end
-
-    extra_seconds = audio_length % min_image_length
-    if extra_seconds > 0 && images_to_show.last.present?
-      last_item = images_to_show.last
-      last_item_key = last_item.keys.first
-      last_item[last_item_key] = last_item[last_item_key] + extra_seconds
-    end
+    images_to_show = still_durations_for_audio(images_urls, audio_length)
 
     input_txt  = File.expand_path("#{scene_images_folder}/input.txt")
     output_mp4 = File.expand_path("#{scene_video_folder}/#{video_name}")
 
     File.open(input_txt, "w") do |f|
       images_to_show.each_with_index do |image_data, i|
-        image_data.each do |url, duration|
+        image_data.each do |url, duration_tenths|
           image_name   = "image00#{ i + 1 }.jpg"
           image_x_path = File.expand_path("#{scene_images_folder}/#{image_name}")
-          Rails.logger.info("generate_scene_video downloading image duration=#{duration} url=#{url}")
+          Rails.logger.info("generate_scene_video downloading image duration=#{duration_tenths / 10.0}s url=#{url}")
           Down.download(url, destination: image_x_path)
 
-          duration.times do
-            10.times do
-              f.write("file '#{image_x_path}' \n")
-              f.write("duration 0.1 \n")
-            end
+          duration_tenths.times do
+            f.write("file '#{image_x_path}' \n")
+            f.write("duration 0.1 \n")
           end
 
           f.write("file '#{image_x_path}' \n")
@@ -218,6 +200,21 @@ class ReelGenerator::VideoService
 
   def self.folder_generator
   end
+
+  def self.still_durations_for_audio(images_urls, audio_length)
+    count = images_urls.length
+    total_tenths = [audio_length, 1].max * 10
+    base_tenths = total_tenths / count
+    remainder = total_tenths % count
+
+    images_urls.each_with_index.map do |url, index|
+      tenths = base_tenths
+      tenths += 1 if index < remainder
+      tenths = 1 if tenths < 1
+      { url => tenths }
+    end
+  end
+  private_class_method :still_durations_for_audio
 
   def self.probe_audio_length(audio_path)
     raw = IO.popen(
