@@ -119,24 +119,17 @@ class ReelGenerator::VideoService
     FileUtils.mkdir_p(audio_folder)
     FileUtils.mkdir_p(merged_audio_video_folder)
 
-    # binding.irb
     Down.download(audio_url, destination: audio_x_path)
     # Down.download(video_url, destination: video_x_path)
 
     video_in  = video_url
-    puts "MIAAAA was here"
     audio_in  = File.expand_path(audio_x_path)
     output_in = File.expand_path(output_mp4)
 
     # Absolute paths + no `cd`: after `cd` into merged folder, project-relative `-i` paths break.
-    success = system(
-      "ffmpeg", "-y",
-      "-i", video_in,
-      "-i", audio_in,
-      "-c:v", "copy",
-      "-map", "0:v", "-map", "1:a",
-      output_in
-    )
+    # Pad audio to the video length so concat does not start the next scene's
+    # narration while this scene is still on screen.
+    success = write_aligned_av(output_in, video_in, audio_path: audio_in)
 
     unless success && File.exist?(output_in)
       Rails.logger.error("merge_audio_video ffmpeg failed job=#{job.id} scene=#{scene_id}")
@@ -173,10 +166,25 @@ class ReelGenerator::VideoService
     ensure_story_layout!(story_id)
     input_file = File.join(story_video_folder, "input.txt")
     output_mp4 = File.join(story_video_folder, "output.mp4")
+    aligned_dir = File.join(story_video_folder, "aligned")
+    FileUtils.rm_rf(aligned_dir)
+    FileUtils.mkdir_p(aligned_dir)
+
+    aligned_videos = []
+    merged_videos.each_with_index do |merged_video_x_path, index|
+      aligned_path = File.join(aligned_dir, format("%03d.mp4", index))
+      unless write_aligned_av(aligned_path, merged_video_x_path)
+        Rails.logger.error(
+          "create_story_video align failed story=#{story_id} scene_video=#{merged_video_x_path}"
+        )
+        return
+      end
+      aligned_videos << aligned_path
+    end
 
     File.open(input_file, "w") do |f|
-      merged_videos.each do |merged_video_x_path|
-        f.write("file '#{merged_video_x_path}' \n")
+      aligned_videos.each do |aligned_video_path|
+        f.write("file '#{aligned_video_path}'\n")
       end
     end
 
@@ -184,8 +192,8 @@ class ReelGenerator::VideoService
       "ffmpeg", "-y",
       "-f", "concat", "-safe", "0",
       "-i", input_file,
-      "-vsync", "vfr", "-pix_fmt", "yuv420p",
       "-c", "copy",
+      "-movflags", "+faststart",
       output_mp4
     )
 
@@ -217,14 +225,43 @@ class ReelGenerator::VideoService
   private_class_method :still_durations_for_audio
 
   def self.probe_audio_length(audio_path)
-    raw = IO.popen(
-      ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", audio_path],
-      err: File::NULL,
-      &:read
-    )
-    length = raw.to_f.ceil
+    length = probe_stream_duration(audio_path).ceil
     length.positive? ? length : 3
   end
   private_class_method :probe_audio_length
+
+  # ffmpeg concat copies audio and video independently. If a clip's audio is
+  # shorter than its video, the next clip's audio starts while the previous
+  # picture is still showing. Pad audio with silence up to the video duration.
+  def self.write_aligned_av(output_path, video_path, audio_path: nil)
+    duration = probe_stream_duration(video_path, "v:0")
+    return false unless duration.positive?
+
+    duration_s = format("%.6f", duration)
+    cmd = ["ffmpeg", "-y", "-i", video_path]
+    cmd += ["-i", audio_path] if audio_path
+    cmd += ["-c:v", "copy", "-c:a", "aac", "-ar", "44100", "-ac", "2"]
+    cmd += ["-map", "0:v", "-map", "1:a"] if audio_path
+    cmd += ["-af", "apad=whole_dur=#{duration_s}", "-t", duration_s, output_path]
+    system(*cmd) && File.exist?(output_path)
+  end
+  private_class_method :write_aligned_av
+
+  def self.probe_stream_duration(path, stream_spec = nil)
+    cmd = ["ffprobe", "-v", "error"]
+    cmd += ["-select_streams", stream_spec] if stream_spec
+    cmd += ["-show_entries", stream_spec ? "stream=duration" : "format=duration", "-of", "csv=p=0", path]
+    raw = IO.popen(cmd, err: File::NULL, &:read)
+    duration = raw.to_f
+    return duration if duration.positive?
+
+    raw = IO.popen(
+      ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
+      err: File::NULL,
+      &:read
+    )
+    raw.to_f
+  end
+  private_class_method :probe_stream_duration
 
 end
