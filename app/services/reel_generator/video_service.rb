@@ -1,3 +1,4 @@
+require "base64"
 require "fileutils"
 
 class ReelGenerator::VideoService
@@ -46,7 +47,10 @@ class ReelGenerator::VideoService
     FileUtils.mkdir_p(audio_folder)
     FileUtils.mkdir_p(merged_audio_video_folder)
 
-    Down.download(audio_url, destination: audio_x_path)
+    unless fetch_media(audio_url, audio_x_path)
+      Rails.logger.error("generate_scene_video audio download failed job=#{job.id} scene=#{scene_id} url=#{audio_url}")
+      return
+    end
 
     audio_length = probe_audio_length(audio_x_path)
     Rails.logger.info("generate_scene_video audio_length=#{audio_length} scene=#{scene_id}")
@@ -118,12 +122,20 @@ class ReelGenerator::VideoService
 
     FileUtils.mkdir_p(audio_folder)
     FileUtils.mkdir_p(merged_audio_video_folder)
+    FileUtils.mkdir_p("#{scene_folder}/video")
 
-    Down.download(audio_url, destination: audio_x_path)
-    # Down.download(video_url, destination: video_x_path)
+    scene_video_path = "#{scene_folder}/video/output.mp4"
+    audio_in = fetch_media(audio_url, audio_x_path)
+    video_in = fetch_media(video_url, scene_video_path) || fetch_media(video_url, video_x_path)
 
-    video_in  = video_url
-    audio_in  = File.expand_path(audio_x_path)
+    if audio_in.blank? || video_in.blank?
+      Rails.logger.error(
+        "merge_audio_video media missing job=#{job.id} scene=#{scene_id} " \
+        "audio_url=#{audio_url} video_url=#{video_url} audio=#{audio_in} video=#{video_in}"
+      )
+      return
+    end
+
     output_in = File.expand_path(output_mp4)
 
     # Absolute paths + no `cd`: after `cd` into merged folder, project-relative `-i` paths break.
@@ -209,6 +221,23 @@ class ReelGenerator::VideoService
   def self.folder_generator
   end
 
+  def self.persist_scene_media(story_id:, scene_id:, audio_url: nil, video_url: nil, audio_base64: nil)
+    ensure_story_layout!(story_id)
+    scene_folder = "#{story_folder_for(story_id)}/scene-#{scene_id}"
+    audio_path   = "#{scene_folder}/audio/audio.mp3"
+    video_path   = "#{scene_folder}/video/output.mp4"
+
+    FileUtils.mkdir_p(File.dirname(audio_path))
+    FileUtils.mkdir_p(File.dirname(video_path))
+
+    saved_audio = write_audio_bytes(audio_path, audio_base64) ||
+      (audio_url.present? ? fetch_media(audio_url, audio_path) : nil) ||
+      (File.exist?(audio_path) ? File.expand_path(audio_path) : nil)
+    saved_video = video_url.present? ? fetch_media(video_url, video_path) : (File.exist?(video_path) ? File.expand_path(video_path) : nil)
+
+    { "audio_path" => saved_audio, "video_path" => saved_video }
+  end
+
   def self.still_durations_for_audio(images_urls, audio_length)
     count = images_urls.length
     total_tenths = [audio_length, 1].max * 10
@@ -223,6 +252,34 @@ class ReelGenerator::VideoService
     end
   end
   private_class_method :still_durations_for_audio
+
+  def self.write_audio_bytes(audio_path, audio_base64)
+    return if audio_base64.blank?
+
+    File.binwrite(audio_path, Base64.decode64(audio_base64))
+    File.expand_path(audio_path) if File.exist?(audio_path) && File.size(audio_path).positive?
+  rescue ArgumentError => e
+    Rails.logger.error("write_audio_bytes failed dest=#{audio_path} error=#{e.class}: #{e.message}")
+    nil
+  end
+  private_class_method :write_audio_bytes
+
+  def self.fetch_media(source, download_path)
+    return File.expand_path(download_path) if File.exist?(download_path.to_s)
+    return File.expand_path(source) if source.to_s.present? && File.exist?(source.to_s)
+    return unless source.to_s.match?(/\Ahttps?:\/\//i)
+
+    Down.download(
+      source,
+      destination: download_path,
+      headers: { "User-Agent" => "video-editor" }
+    )
+    File.expand_path(download_path) if File.exist?(download_path)
+  rescue Down::NotFound, Down::ClientError, Down::ServerError, Down::TimeoutError => e
+    Rails.logger.error("fetch_media failed source=#{source} dest=#{download_path} error=#{e.class}: #{e.message}")
+    nil
+  end
+  private_class_method :fetch_media
 
   def self.probe_audio_length(audio_path)
     length = probe_stream_duration(audio_path).ceil

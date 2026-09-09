@@ -29,6 +29,17 @@ class ReelGenerator::VideosController < ApplicationController
     render_response
   end
 
+  def persist_scene_media
+    result = ReelGenerator::VideoService.persist_scene_media(
+      story_id:     params[:story_id],
+      scene_id:     params[:scene_id],
+      audio_url:    params[:audio_url],
+      video_url:    params[:video_url],
+      audio_base64: params[:audio_base64]
+    )
+    render json: { "success": "OK", "status": 200, "body": result }
+  end
+
   def render_response
     if @job.save
       render json: { "success": "OK", "status": 200, "body": { "gen_id": @job.gen_id } }

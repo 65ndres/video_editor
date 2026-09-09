@@ -7,6 +7,7 @@ Rails.application.routes.draw do
     post "/videos/generate_scene_video", to: "videos#generate_scene_video"
     post "/videos/merge_audio_video", to: "videos#merge_audio_video"
     post "/videos/create_story_video", to: "videos#create_story_video"
+    post "/videos/persist_scene_media", to: "videos#persist_scene_media"
   end
 
 end
