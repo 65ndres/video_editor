@@ -265,10 +265,18 @@ class ReelGenerator::VideoService
   private_class_method :write_audio_bytes
 
   def self.fetch_media(source, download_path)
-    return File.expand_path(download_path) if File.exist?(download_path.to_s)
-    return File.expand_path(source) if source.to_s.present? && File.exist?(source.to_s)
-    return unless source.to_s.match?(/\Ahttps?:\/\//i)
+    source = source.to_s
+    dest = download_path.to_s
+    remote = source.match?(/\Ahttps?:\/\//i)
 
+    unless remote
+      return File.expand_path(dest) if File.exist?(dest)
+      return File.expand_path(source) if source.present? && File.exist?(source)
+      return
+    end
+
+    # Always re-download remote URLs. Scene regeneration writes to the same
+    # output.mp4 path, so keeping an existing dest would stitch the old clip.
     Down.download(
       source,
       destination: download_path,
